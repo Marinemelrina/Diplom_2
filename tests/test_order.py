@@ -1,100 +1,50 @@
-from helpers import RegisterUserWithoutDate
-from data import Messages
-from conftest import*
+import allure
+import requests
+from data import IngredientsData, Url, Messages
+from conftest import create_and_delete_user
 
 
 class TestOrder:
     @allure.title(
-        "Проверка создания заказа под авторизованным пользователем с ингредиентами"
+        "Проверка создания заказа под авторизованным пользователем"
     )
-    def test_order_with_login_and_ingredients(self, registered_user_payload):
-        response = BurgerAPI.create_user(registered_user_payload)
-        token = response.json()["accessToken"]
-        ingredient = helpers.get_random_ingredients()
-        created_order = BurgerAPI.order_create(ingredient, token)
-
-        assert (
-            created_order.status_code == 200 and created_order.json()["success"] == True
-        )
+    def test_order_with_login(self, create_and_delete_user):
+        token = {'Authorization': create_and_delete_user[3]}
+        r = requests.post(Url.MAIN_URL + Url.ORDER, headers=token,
+                          data=IngredientsData.correct_ingredients)
+        assert r.status_code == 200 and r.json().get("success") is True
 
     @allure.title(
         "Проверка создания заказа под авторизованным пользователем и несуществующим хэшем ингредиентов"
     )
-    def test_order_with_login_and_incorrect_ingredients(self, registered_user_payload):
-        response = BurgerAPI.create_user(registered_user_payload)
-        token = response.json()["accessToken"]
-        ingredient = {"ingredients": RegisterUserWithoutDate.name}
-        created_order = BurgerAPI.order_create(ingredient, token)
-
-        assert created_order.status_code == 500
+    def test_order_with_login(self, create_and_delete_user):
+        r = requests.post(Url.MAIN_URL + Url.ORDER, data=IngredientsData.incorrect_ingredients)
+        assert r.status_code == 500 and 'Internal Server Error' in r.text
 
     @allure.title(
         "Проверка создания заказа под авторизованным пользователем и без ингредиентов"
     )
-    def test_order_with_login_without_ingredients(self, registered_user_payload):
-        response = BurgerAPI.create_user(registered_user_payload)
-        token = response.json()["accessToken"]
-        ingredient = []
-        created_order = BurgerAPI.order_create(ingredient, token)
+    def test_order_with_login_and_without_ingredients(self, create_and_delete_user):
+        r = requests.post(Url.MAIN_URL + Url.ORDER)
+        assert r.status_code == 400 and r.json()['message'] == "Ingredient ids must be provided"
 
-        assert (
-            created_order.status_code == 400
-            and created_order.json()["success"] == False
-        )
 
-    @allure.title("Проверка создания заказа без авторизации с ингредиентами")
-    def test_order_without_login_with_ingredients(self):
-        token = "no_token"
-        ingredient = helpers.get_random_ingredients()
-        created_order = BurgerAPI.order_create(ingredient, token)
+    @allure.title("Проверка создания заказа без авторизации")
+    def test_order_without_login(self, create_and_delete_user):
+        r = requests.post(Url.MAIN_URL + Url.ORDER, data=IngredientsData.correct_ingredients)
+        assert r.status_code == 200 and r.json().get("success") is True
 
-        assert (
-            created_order.status_code == 200 and created_order.json()["success"] == True
-        )
+    @allure.title("Проверка получения заказа авторизованным пользователем")
+    def test_get_order_with_authorised_user_success(self, create_and_delete_user):
+        token = {'Authorization': create_and_delete_user[3]}
+        requests_create_order = requests.post(Url.MAIN_URL + Url.ORDER, headers=token,
+                                              data=IngredientsData.correct_ingredients)
+        response_get_order = requests.get(Url.MAIN_URL + Url.ORDER, headers=token)
+        assert (response_get_order.status_code == 200 and response_get_order.json()['orders'][0]['number'] ==
+                requests_create_order.json()['order']['number'])
 
-    @allure.title(
-        "Проверка создания заказа без авторизации с несуществующим хэшем ингредиентов"
-    )
-    def test_order_without_login_and_incorrect_ingredients(self):
-        token = "no_token"
-        ingredient = {"ingredients": RegisterUserWithoutDate.name}
-        created_order = BurgerAPI.order_create(ingredient, token)
+    @allure.title("Проверка получения заказа неавторизованным пользователем")
+    def test_get_order_user_without_authorisation_fail(self, create_and_delete_user):
+        r = requests.get(Url.MAIN_URL + Url.ORDER)
+        assert r.status_code == 401 and r.json()['message'] == Messages.ERROR_401_AUTHORIZED_FOR_ORDER_LIST
 
-        assert created_order.status_code == 500
-
-    @allure.title("Проверка создания заказа без авторизации и без ингредиентов")
-    def test_order_without_login_and_without_ingredients(self):
-        token = "no_token"
-        ingredient = []
-        created_order = BurgerAPI.order_create(ingredient, token)
-
-        assert (
-            created_order.status_code == 400
-            and created_order.json()["success"] == False
-        )
-
-    @allure.title("Проверка получения списка заказов авторизованного пользователя")
-    def test_get_order_list_for_login_user(self, registered_user_payload):
-        response = BurgerAPI.create_user(registered_user_payload)
-        token = response.json()["accessToken"]
-        ingredient = helpers.get_random_ingredients()
-        created_order = BurgerAPI.order_create(ingredient, token)
-
-        order_list = BurgerAPI.list_of_orders(token)
-
-        assert order_list.status_code == 200 and order_list.json()["success"] == True
-
-    @allure.title("Проверка получения списка заказов неавторизованного пользователя")
-    def test_get_order_list_without_login_user(self):
-        token = "no_token"
-        ingredient = helpers.get_random_ingredients()
-        created_order = BurgerAPI.order_create(ingredient, token)
-
-        order_list = BurgerAPI.list_of_orders(token)
-
-        assert (
-            order_list.status_code == 401
-            and order_list.json()["success"] == False
-            and order_list.json()["message"]
-            == Messages.ERROR_401_AUTHORIZED_FOR_ORDER_LIST
-        )

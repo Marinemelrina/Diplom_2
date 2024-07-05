@@ -14,4 +14,22 @@ class Messages:
     ERROR_401_AUTHORIZED = 'email or password are incorrect'
     ERROR_401_AUTHORIZED_FOR_ORDER_LIST = 'You should be authorised'
 
+class UserData:
+    without_name = {"email": "test@yandex.ru", "password": "test"}
+    without_email = {"password": "test", "name": "test"}
+    without_password = {"email": "test@yandex.ru", "name": "test"}
 
+
+class IngredientsData:
+    correct_ingredients = {
+        "ingredients": [
+            "61c0c5a71d1f82001bdaaa6d",
+            "61c0c5a71d1f82001bdaaa73"
+        ]
+    }
+    incorrect_ingredients = {
+        "ingredients": [
+            "bdaaa6d",
+            "bdaaa73"
+        ]
+    }

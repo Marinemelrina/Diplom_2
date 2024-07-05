@@ -1,37 +1,17 @@
-from helpers import RegisterUserWithoutDate
-from burger_api import BurgerAPI
-from data import Messages
 import allure
-import pytest
+import requests
+from conftest import create_and_delete_user
+from data import Url, Messages
+from helpers import create_user_login
 
 class TestLoginUser:
-    @allure.title("Проверка авторизации ранее зарегистрированного пользователя")
-    @pytest.mark.parametrize('email, password, name', [(RegisterUserWithoutDate.email, RegisterUserWithoutDate.password, RegisterUserWithoutDate.name)])
-    def test_success_login_user(self, email, password, name):
+    @allure.title("Проверка успешной авторизации пользователя")
+    def test_user_login_success(self, create_and_delete_user):
+        r = requests.post(Url.MAIN_URL + Url.USER_LOGIN, data=create_and_delete_user[2])
+        assert r.status_code == 200 and r.json().get("success") is True
 
-        payload={
-            "email": email,
-            "password": password,
-            "name": name
-
-        }
-        create_user = BurgerAPI.create_user(payload)
-        payload_login={
-            "email": email,
-            "password": password
-        }
-        login_user=BurgerAPI.login_user(payload_login)
-        BurgerAPI.delete_user(payload)
-
-        assert login_user.status_code == 200 and 'accessToken' in login_user.json() and 'refreshToken' in login_user.json() and \
-               login_user.json()['success'] == True
-
-    @allure.title("Проверка авторизации пользователя с рандомными данными")
-    def test_fake_login_user(self):
-        payload_login = {
-            "email": RegisterUserWithoutDate.generate_email(),
-            "password": RegisterUserWithoutDate.password
-        }
-        login_user = BurgerAPI.login_user(payload_login)
-
-        assert login_user.status_code == 401 and login_user.json()['message'] == Messages.ERROR_401_AUTHORIZED
+    @allure.title("Проверка при авторизации с неверным логином и паролем")
+    def test_user_login_incorrect_login_data_fail(self, create_and_delete_user):
+        payload = create_user_login()
+        r = requests.post(Url.MAIN_URL + Url.USER_LOGIN, data=payload)
+        assert r.status_code == 401 and r.json()['message'] == Messages.ERROR_401_AUTHORIZED

@@ -1,15 +1,14 @@
 import pytest
-import helpers
-from burger_api import BurgerAPI
-import allure
+from helpers import *
+from data import Url
+import requests
 
-@pytest.fixture
-def registered_user_payload():
-    payload = helpers.get_user_registration_body()
-    yield payload
-    BurgerAPI.delete_user(payload)
-
-@pytest.fixture
-def get_new_data():
-    payload = helpers.get_user_registration_body()
-    yield payload
+@pytest.fixture(scope="function")
+def create_and_delete_user():
+    payload = create_user_data()
+    login_data = payload.copy()
+    del login_data["name"]
+    response = requests.post(Url.MAIN_URL+Url.USER_REGISTER, data=payload)
+    token = response.json()["accessToken"]
+    yield response, payload, login_data, token
+    requests.delete(Url.MAIN_URL + Url.USER_DATA, headers={'Authorization': f'{token}'})
